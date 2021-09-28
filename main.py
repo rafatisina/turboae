@@ -1,4 +1,5 @@
 __author__ = 'yihanjiang'
+
 # update 10/18/2019, code to replicate TurboAE paper in NeurIPS 2019.
 # Tested on PyTorch 1.0.
 # TBD: remove all non-TurboAE related functions.
@@ -13,6 +14,7 @@ from trainer import train, validate, test
 from numpy import arange
 from numpy.random import mtrand
 
+
 # utils for logger
 class Logger(object):
     def __init__(self, filename, stream=sys.stdout):
@@ -25,6 +27,7 @@ class Logger(object):
 
     def flush(self):
         pass
+
 
 def import_enc(args):
     # choose encoder
@@ -54,7 +57,7 @@ def import_enc(args):
         from encoders import ENC_turbofy_rate2_CNN as ENC  # not done yet
 
     elif args.encoder in ['Turbo_rate3_lte', 'Turbo_rate3_757']:
-        from encoders import ENC_TurboCode as ENC          # DeepTurbo, encoder not trainable.
+        from encoders import ENC_TurboCode as ENC  # DeepTurbo, encoder not trainable.
 
     elif args.encoder == 'rate3_cnn2d':
         from encoders import ENC_CNN2D as ENC
@@ -64,8 +67,8 @@ def import_enc(args):
 
     return ENC
 
-def import_dec(args):
 
+def import_dec(args):
     if args.decoder == 'TurboAE_rate2_rnn':
         from decoders import DEC_LargeRNN_rate2 as DEC
 
@@ -87,13 +90,14 @@ def import_dec(args):
     elif args.decoder == 'TurboAE_rate3_rnn':
         from decoders import DEC_LargeRNN as DEC
 
-    elif args.decoder == 'nbcjr_rate3':                # ICLR 2018 paper
+    elif args.decoder == 'nbcjr_rate3':  # ICLR 2018 paper
         from decoders import NeuralTurbofyDec as DEC
 
     elif args.decoder == 'rate3_cnn2d':
         from decoders import DEC_CNN2D as DEC
 
     return DEC
+
 
 if __name__ == '__main__':
     #################################################
@@ -103,8 +107,8 @@ if __name__ == '__main__':
     print('[ID]', identity)
 
     # put all printed things to log file
-    logfile = open('./logs/'+identity+'_log.txt', 'a')
-    sys.stdout = Logger('./logs/'+identity+'_log.txt', sys.stdout)
+    logfile = open('./logs/' + identity + '_log.txt', 'a')
+    sys.stdout = Logger('./logs/' + identity + '_log.txt', sys.stdout)
 
     args = get_args()
     print(args)
@@ -120,15 +124,15 @@ if __name__ == '__main__':
     DEC = import_dec(args)
 
     # setup interleaver.
-    if args.is_interleave == 1:           # fixed interleaver.
+    if args.is_interleave == 1:  # fixed interleaver.
         seed = np.random.randint(0, 1)
         rand_gen = mtrand.RandomState(seed)
         p_array1 = rand_gen.permutation(arange(args.block_len))
         p_array2 = rand_gen.permutation(arange(args.block_len))
 
     elif args.is_interleave == 0:
-        p_array1 = range(args.block_len)   # no interleaver.
-        p_array2 = range(args.block_len)   # no interleaver.
+        p_array1 = range(args.block_len)  # no interleaver.
+        p_array2 = range(args.block_len)  # no interleaver.
     else:
         seed = np.random.randint(0, args.is_interleave)
         rand_gen = mtrand.RandomState(seed)
@@ -148,10 +152,10 @@ if __name__ == '__main__':
 
     # choose support channels
     from channel_ae import Channel_AE
+
     model = Channel_AE(args, encoder, decoder).to(device)
 
     # model = Channel_ModAE(args, encoder, decoder).to(device)
-
 
     # make the model parallel
     if args.is_parallel == 1:
@@ -166,15 +170,14 @@ if __name__ == '__main__':
         pretrained_model = torch.load(args.init_nw_weight)
 
         try:
-            model.load_state_dict(pretrained_model.state_dict(), strict = False)
+            model.load_state_dict(pretrained_model.state_dict(), strict=False)
 
         except:
-            model.load_state_dict(pretrained_model, strict = False)
+            model.load_state_dict(pretrained_model, strict=False)
 
         model.args = args
 
     print(model)
-
 
     ##################################################################
     # Setup Optimizers, only Adam and Lookahead for now.
@@ -183,20 +186,22 @@ if __name__ == '__main__':
     if args.optimizer == 'lookahead':
         print('Using Lookahead Optimizers')
         from optimizers import Lookahead
+
         lookahead_k = 5
         lookahead_alpha = 0.5
-        if args.num_train_enc != 0 and args.encoder not in ['Turbo_rate3_lte', 'Turbo_rate3_757']: # no optimizer for encoder
-            enc_base_opt  = optim.Adam(model.enc.parameters(), lr=args.enc_lr)
+        if args.num_train_enc != 0 and args.encoder not in ['Turbo_rate3_lte',
+                                                            'Turbo_rate3_757']:  # no optimizer for encoder
+            enc_base_opt = optim.Adam(model.enc.parameters(), lr=args.enc_lr)
             enc_optimizer = Lookahead(enc_base_opt, k=lookahead_k, alpha=lookahead_alpha)
 
         if args.num_train_dec != 0:
-            dec_base_opt  = optim.Adam(filter(lambda p: p.requires_grad, model.dec.parameters()), lr=args.dec_lr)
+            dec_base_opt = optim.Adam(filter(lambda p: p.requires_grad, model.dec.parameters()), lr=args.dec_lr)
             dec_optimizer = Lookahead(dec_base_opt, k=lookahead_k, alpha=lookahead_alpha)
 
-        general_base_opt = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()),lr=args.dec_lr)
+        general_base_opt = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=args.dec_lr)
         general_optimizer = Lookahead(general_base_opt, k=lookahead_k, alpha=lookahead_alpha)
 
-    else: # Adam, SGD, etc....
+    else:  # Adam, SGD, etc....
         if args.optimizer == 'adam':
             OPT = optim.Adam
         elif args.optimizer == 'sgd':
@@ -204,13 +209,14 @@ if __name__ == '__main__':
         else:
             OPT = optim.Adam
 
-        if args.num_train_enc != 0 and args.encoder not in ['Turbo_rate3_lte', 'Turbo_rate3_757']: # no optimizer for encoder
-            enc_optimizer = OPT(model.enc.parameters(),lr=args.enc_lr)
+        if args.num_train_enc != 0 and args.encoder not in ['Turbo_rate3_lte',
+                                                            'Turbo_rate3_757']:  # no optimizer for encoder
+            enc_optimizer = OPT(model.enc.parameters(), lr=args.enc_lr)
 
         if args.num_train_dec != 0:
             dec_optimizer = OPT(filter(lambda p: p.requires_grad, model.dec.parameters()), lr=args.dec_lr)
 
-        general_optimizer = OPT(filter(lambda p: p.requires_grad, model.parameters()),lr=args.dec_lr)
+        general_optimizer = OPT(filter(lambda p: p.requires_grad, model.parameters()), lr=args.dec_lr)
 
     #################################################
     # Training Processes
@@ -220,19 +226,19 @@ if __name__ == '__main__':
     for epoch in range(1, args.num_epoch + 1):
 
         if args.joint_train == 1 and args.encoder not in ['Turbo_rate3_lte', 'Turbo_rate3_757']:
-            for idx in range(args.num_train_enc+args.num_train_dec):
-                train(epoch, model, general_optimizer, args, use_cuda = use_cuda, mode ='encoder')
+            for idx in range(args.num_train_enc + args.num_train_dec):
+                train(epoch, model, general_optimizer, args, use_cuda=use_cuda, mode='encoder')
 
         else:
             if args.num_train_enc > 0 and args.encoder not in ['Turbo_rate3_lte', 'Turbo_rate3_757']:
                 for idx in range(args.num_train_enc):
-                    train(epoch, model, enc_optimizer, args, use_cuda = use_cuda, mode ='encoder')
+                    train(epoch, model, enc_optimizer, args, use_cuda=use_cuda, mode='encoder')
 
             if args.num_train_dec > 0:
                 for idx in range(args.num_train_dec):
-                    train(epoch, model, dec_optimizer, args, use_cuda = use_cuda, mode ='decoder')
+                    train(epoch, model, dec_optimizer, args, use_cuda=use_cuda, mode='decoder')
 
-        this_loss, this_ber  = validate(model, general_optimizer, args, use_cuda = use_cuda)
+        this_loss, this_ber = validate(model, general_optimizer, args, use_cuda=use_cuda)
         report_loss.append(this_loss)
         report_ber.append(this_ber)
 
@@ -245,30 +251,16 @@ if __name__ == '__main__':
     # Testing Processes
     #################################################
 
-    torch.save(model.state_dict(), './tmp/torch_model_'+identity+'.pt')
-    print('saved model', './tmp/torch_model_'+identity+'.pt')
+    torch.save(model.state_dict(), './tmp/torch_model_' + identity + '.pt')
+    print('saved model', './tmp/torch_model_' + identity + '.pt')
 
     if args.is_variable_block_len:
-        print('testing block length',args.block_len_low )
-        test(model, args, block_len=args.block_len_low, use_cuda = use_cuda)
-        print('testing block length',args.block_len )
-        test(model, args, block_len=args.block_len, use_cuda = use_cuda)
-        print('testing block length',args.block_len_high )
-        test(model, args, block_len=args.block_len_high, use_cuda = use_cuda)
+        print('testing block length', args.block_len_low)
+        test(model, args, block_len=args.block_len_low, use_cuda=use_cuda)
+        print('testing block length', args.block_len)
+        test(model, args, block_len=args.block_len, use_cuda=use_cuda)
+        print('testing block length', args.block_len_high)
+        test(model, args, block_len=args.block_len_high, use_cuda=use_cuda)
 
     else:
-        test(model, args, use_cuda = use_cuda)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+        test(model, args, use_cuda=use_cuda)
